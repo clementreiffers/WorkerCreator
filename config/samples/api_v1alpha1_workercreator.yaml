@@ -1,0 +1,13 @@
+apiVersion: api.worker-creator/v1alpha1
+kind: WorkerCreator
+metadata:
+  labels:
+    app.kubernetes.io/name: workercreator
+    app.kubernetes.io/instance: workercreator-sample
+    app.kubernetes.io/part-of: workercreator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: workercreator
+  name: workercreator-sample
+spec:
+  worker-deployment-id: deployment-id-example # modifiable
+  worker-definition-id: definition-id-example # non modifiable

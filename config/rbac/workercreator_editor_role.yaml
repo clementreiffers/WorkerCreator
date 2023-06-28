@@ -1,0 +1,31 @@
+# permissions for end users to edit workercreators.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: workercreator-editor-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: workercreator
+    app.kubernetes.io/part-of: workercreator
+    app.kubernetes.io/managed-by: kustomize
+  name: workercreator-editor-role
+rules:
+- apiGroups:
+  - api.worker-creator
+  resources:
+  - workercreators
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - api.worker-creator
+  resources:
+  - workercreators/status
+  verbs:
+  - get
