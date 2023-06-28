@@ -104,16 +104,25 @@ func (r *WorkerCreatorReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		// Le CRD est en cours de suppression
 		return ctrl.Result{}, fmt.Errorf("WorkerDeployment %s is being deleted", workerDepl.GetName())
 	}
-
 	workerDefSpec := workerDef.UnstructuredContent()["spec"]
-	//workerDeplSpec := workerDepl.UnstructuredContent()["spec"]
+	workerDeplSpec := workerDepl.UnstructuredContent()["spec"]
 
-	accountsField, ok := workerDefSpec.(map[string]interface{})["accounts"]
+	accounts, ok := workerDefSpec.(map[string]interface{})["accounts"]
 	if !ok {
 		return ctrl.Result{}, fmt.Errorf("there is no accounts in workerDef")
 	}
+	project, ok := workerDefSpec.(map[string]interface{})["project"]
+	if !ok {
+		return ctrl.Result{}, fmt.Errorf("there is no project in workerDef")
+	}
+	image, ok := workerDeplSpec.(map[string]interface{})["image"]
+	if !ok {
+		return ctrl.Result{}, fmt.Errorf("there is no image in workerDepl")
+	}
 
-	logger.Info(fmt.Sprintf("workerDef accounts : %s", accountsField))
+	logger.Info(fmt.Sprintf("workerDef accounts : %s", accounts))
+	logger.Info(fmt.Sprintf("workerDef project : %s", project))
+	logger.Info(fmt.Sprintf("workerDepl image : %s", image))
 
 	return ctrl.Result{}, nil
 }
