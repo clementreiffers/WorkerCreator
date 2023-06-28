@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -66,6 +67,18 @@ func searchWorkerDeployment(name string) unstructured.Unstructured {
 	workerDeployment.SetAPIVersion("api.worker-deployment/v1alpha1")
 	workerDeployment.SetNamespace("default")
 	return workerDeployment
+}
+
+func applyResource(r *WorkerCreatorReconciler, ctx context.Context, resource client.Object, foundResource client.Object) error {
+	err := r.Get(ctx, types.NamespacedName{Name: resource.GetName(), Namespace: resource.GetNamespace()}, foundResource)
+	if err != nil && errors.IsNotFound(err) {
+		err = r.Create(ctx, resource)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	return err
 }
 
 func (r *WorkerCreatorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -125,6 +138,9 @@ func (r *WorkerCreatorReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if !ok {
 		return ctrl.Result{}, fmt.Errorf("there is not `ports` field")
 	}
+
+	ports := make([]apiv1alpha1.Port, 0)
+
 	// Parcourir la liste des ports
 	for _, portObj := range portsList {
 		portMap, ok := portObj.(map[string]interface{})
@@ -132,36 +148,33 @@ func (r *WorkerCreatorReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			return ctrl.Result{}, fmt.Errorf("Élément de la liste des ports n'est pas un objet")
 		}
 
-		// Récupérer les valeurs de portName et portNumber
-		portName, ok := portMap["portName"].(string)
+		portNumber, ok := portMap["portNumber"].(int64)
 		if !ok {
-			return ctrl.Result{}, fmt.Errorf("Le champ portName n'est pas une chaîne de caractères")
+			return ctrl.Result{}, fmt.Errorf("portNumber is not a number")
 		}
 
-		//portNumber, ok := portMap["portNumber"].(string)
-		//if !ok {
-		//	return ctrl.Result{}, fmt.Errorf("Le champ portNumber n'est pas un entier")
-		//}
+		portName, ok := portMap["portName"].(string)
+		if !ok {
+			return ctrl.Result{}, fmt.Errorf("portName is incorrect")
+		}
 
-		// Créer une instance du type Port avec les valeurs récupérées
-		//port := apiv1alpha1.Port{
-		//	PortName:   portName,
-		//	PortNumber: portNumber,
-		//}
-
-		// Utiliser l'instance de Port comme bon vous semble
-		logger.Info(fmt.Sprintf("Port Name: %s", portName))
-		//fmt.Println("Port Number:", portNumber)
+		ports = append(ports, apiv1alpha1.Port{
+			PortName:   portName,
+			PortNumber: int32(portNumber),
+		})
 	}
 
 	logger.Info(fmt.Sprintf("workerDef accounts : %s", accounts))
 	logger.Info(fmt.Sprintf("workerDef project : %s", project))
 	logger.Info(fmt.Sprintf("workerDepl image : %s", image))
 
-	//instanceName := fmt.Sprintf("%s.%s", accounts, project)
-	//port needed
-	//pod := createPod(instanceName, image)
-
+	instanceName := fmt.Sprintf("%s-%s", accounts, project)
+	pod := createPod(instanceName, fmt.Sprintf("%s", image), ports)
+	err = applyResource(r, ctx, pod, &corev1.Pod{})
+	if err != nil {
+		logger.Error(err, "unable to create Pod")
+		return ctrl.Result{}, err
+	}
 	return ctrl.Result{}, nil
 }
 
