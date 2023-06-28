@@ -29,6 +29,11 @@ type WorkerCreatorSpec struct {
 	WorkerDefinitionId string `json:"worker-definition-id"`
 }
 
+type Port struct {
+	PortName   string `json:"portName"`
+	PortNumber int32  `json:"portNumber"`
+}
+
 // WorkerCreatorStatus defines the observed state of WorkerCreator
 type WorkerCreatorStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
