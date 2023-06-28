@@ -120,9 +120,47 @@ func (r *WorkerCreatorReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, fmt.Errorf("there is no image in workerDepl")
 	}
 
+	// Vérifier si le champ "ports" existe et est une liste
+	portsList, ok := workerDeplSpec.(map[string]interface{})["ports"].([]interface{})
+	if !ok {
+		return ctrl.Result{}, fmt.Errorf("there is not `ports` field")
+	}
+	// Parcourir la liste des ports
+	for _, portObj := range portsList {
+		portMap, ok := portObj.(map[string]interface{})
+		if !ok {
+			return ctrl.Result{}, fmt.Errorf("Élément de la liste des ports n'est pas un objet")
+		}
+
+		// Récupérer les valeurs de portName et portNumber
+		portName, ok := portMap["portName"].(string)
+		if !ok {
+			return ctrl.Result{}, fmt.Errorf("Le champ portName n'est pas une chaîne de caractères")
+		}
+
+		//portNumber, ok := portMap["portNumber"].(string)
+		//if !ok {
+		//	return ctrl.Result{}, fmt.Errorf("Le champ portNumber n'est pas un entier")
+		//}
+
+		// Créer une instance du type Port avec les valeurs récupérées
+		//port := apiv1alpha1.Port{
+		//	PortName:   portName,
+		//	PortNumber: portNumber,
+		//}
+
+		// Utiliser l'instance de Port comme bon vous semble
+		logger.Info(fmt.Sprintf("Port Name: %s", portName))
+		//fmt.Println("Port Number:", portNumber)
+	}
+
 	logger.Info(fmt.Sprintf("workerDef accounts : %s", accounts))
 	logger.Info(fmt.Sprintf("workerDef project : %s", project))
 	logger.Info(fmt.Sprintf("workerDepl image : %s", image))
+
+	//instanceName := fmt.Sprintf("%s.%s", accounts, project)
+	//port needed
+	//pod := createPod(instanceName, image)
 
 	return ctrl.Result{}, nil
 }
