@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	apiv1alpha1 "operators/WorkerCreator/api/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -168,13 +169,28 @@ func (r *WorkerCreatorReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	logger.Info(fmt.Sprintf("workerDef project : %s", project))
 	logger.Info(fmt.Sprintf("workerDepl image : %s", image))
 
-	instanceName := fmt.Sprintf("%s-%s", accounts, project)
+	instanceName := fmt.Sprintf("worker-%s-%s", accounts, project)
+
 	pod := createPod(instanceName, fmt.Sprintf("%s", image), ports)
+	svc := createService(instanceName)
+	ing := createIngress(ports, instanceName)
+
 	err = applyResource(r, ctx, pod, &corev1.Pod{})
 	if err != nil {
 		logger.Error(err, "unable to create Pod")
 		return ctrl.Result{}, err
 	}
+	err = applyResource(r, ctx, svc, &corev1.Service{})
+	if err != nil {
+		logger.Error(err, "unable to create Service")
+		return ctrl.Result{}, err
+	}
+	err = applyResource(r, ctx, ing, &networkingv1.Ingress{})
+	if err != nil {
+		logger.Error(err, "unable to create Ingress")
+		return ctrl.Result{}, err
+	}
+	logger.Info("all resources created!")
 	return ctrl.Result{}, nil
 }
 
