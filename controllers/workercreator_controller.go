@@ -105,7 +105,15 @@ func (r *WorkerCreatorReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, fmt.Errorf("WorkerDeployment %s is being deleted", workerDepl.GetName())
 	}
 
-	logger.Info("i found all CRD!")
+	workerDefSpec := workerDef.UnstructuredContent()["spec"]
+	//workerDeplSpec := workerDepl.UnstructuredContent()["spec"]
+
+	accountsField, ok := workerDefSpec.(map[string]interface{})["accounts"]
+	if !ok {
+		return ctrl.Result{}, fmt.Errorf("there is no accounts in workerDef")
+	}
+
+	logger.Info(fmt.Sprintf("workerDef accounts : %s", accountsField))
 
 	return ctrl.Result{}, nil
 }
