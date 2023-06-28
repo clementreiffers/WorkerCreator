@@ -50,6 +50,24 @@ type WorkerCreatorReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 
+func searchWorkerDefinition(name string) unstructured.Unstructured {
+	workerDef := unstructured.Unstructured{}
+	workerDef.SetKind("WorkerDefinition")
+	workerDef.SetName(name)
+	workerDef.SetAPIVersion("api.worker-definition/v1alpha1")
+	workerDef.SetNamespace("default")
+	return workerDef
+}
+
+func searchWorkerDeployment(name string) unstructured.Unstructured {
+	workerDeployment := unstructured.Unstructured{}
+	workerDeployment.SetKind("WorkerDeployment")
+	workerDeployment.SetName(name)
+	workerDeployment.SetAPIVersion("api.worker-deployment/v1alpha1")
+	workerDeployment.SetNamespace("default")
+	return workerDeployment
+}
+
 func (r *WorkerCreatorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.Log.WithValues("PodInstanciator", req.NamespacedName)
 
@@ -63,24 +81,31 @@ func (r *WorkerCreatorReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	workerDef := &unstructured.Unstructured{}
-	workerDef.SetKind("WorkerDefinition")
-	workerDef.SetName(instance.Spec.WorkerDefinitionId)
-	workerDef.SetAPIVersion("api.worker-definition/v1alpha1")
-	workerDef.SetNamespace("default")
+	workerDef := searchWorkerDefinition(instance.Spec.WorkerDefinitionId)
+	workerDepl := searchWorkerDeployment(instance.Spec.WorkerDeploymentId)
 
-	namespacedName := types.NamespacedName{Name: instance.Spec.WorkerDefinitionId, Namespace: "default"}
+	workerDefNamespacedName := types.NamespacedName{Name: instance.Spec.WorkerDefinitionId, Namespace: "default"}
+	workerDeplNamespacedName := types.NamespacedName{Name: instance.Spec.WorkerDeploymentId, Namespace: "default"}
 
-	err = r.Get(ctx, namespacedName, workerDef)
+	err = r.Get(ctx, workerDefNamespacedName, &workerDef)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	if !workerDef.GetDeletionTimestamp().IsZero() {
 		// Le CRD est en cours de suppression
-		return ctrl.Result{}, fmt.Errorf("Le CRD est en cours de suppression")
+		return ctrl.Result{}, fmt.Errorf("WorkerDefinition %s is being deleted", workerDef.GetName())
 	}
 
-	logger.Info("i found a crd!!")
+	err = r.Get(ctx, workerDeplNamespacedName, &workerDepl)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if !workerDef.GetDeletionTimestamp().IsZero() {
+		// Le CRD est en cours de suppression
+		return ctrl.Result{}, fmt.Errorf("WorkerDeployment %s is being deleted", workerDepl.GetName())
+	}
+
+	logger.Info("i found all CRD!")
 
 	return ctrl.Result{}, nil
 }
