@@ -35,10 +35,13 @@ spec:
           spec:
             description: WorkerCreatorSpec defines the desired state of WorkerCreator
             properties:
-              foo:
-                description: Foo is an example field of WorkerCreator. Edit workercreator_types.go
-                  to remove/update
+              worker-definition-id:
                 type: string
+              worker-deployment-id:
+                type: string
+            required:
+            - worker-definition-id
+            - worker-deployment-id
             type: object
           status:
             description: WorkerCreatorStatus defines the observed state of WorkerCreator

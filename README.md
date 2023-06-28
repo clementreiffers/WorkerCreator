@@ -92,3 +92,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
+```mermaid
+flowchart LR
+    subgraph VM 
+        docker1
+        docker2
+        docker3
+    end
+```

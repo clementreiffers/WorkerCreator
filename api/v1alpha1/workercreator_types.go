@@ -25,11 +25,8 @@ import (
 
 // WorkerCreatorSpec defines the desired state of WorkerCreator
 type WorkerCreatorSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of WorkerCreator. Edit workercreator_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	WorkerDeploymentId string `json:"worker-deployment-id"`
+	WorkerDefinitionId string `json:"worker-definition-id"`
 }
 
 // WorkerCreatorStatus defines the observed state of WorkerCreator

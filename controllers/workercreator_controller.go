@@ -18,12 +18,16 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	apiv1alpha1 "operators/WorkerCreator/api/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // WorkerCreatorReconciler reconciles a WorkerCreator object
@@ -45,9 +49,38 @@ type WorkerCreatorReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
+
 func (r *WorkerCreatorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
-	// TODO(user): your logic here
+	logger := log.Log.WithValues("PodInstanciator", req.NamespacedName)
+
+	instance := &apiv1alpha1.WorkerCreator{}
+	err := r.Get(ctx, req.NamespacedName, instance)
+
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	workerDef := &unstructured.Unstructured{}
+	workerDef.SetKind("WorkerDefinition")
+	workerDef.SetName(instance.Spec.WorkerDefinitionId)
+	workerDef.SetAPIVersion("api.worker-definition/v1alpha1")
+	workerDef.SetNamespace("default")
+
+	namespacedName := types.NamespacedName{Name: instance.Spec.WorkerDefinitionId, Namespace: "default"}
+
+	err = r.Get(ctx, namespacedName, workerDef)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if !workerDef.GetDeletionTimestamp().IsZero() {
+		// Le CRD est en cours de suppression
+		return ctrl.Result{}, fmt.Errorf("Le CRD est en cours de suppression")
+	}
+
+	logger.Info("i found a crd!!")
 
 	return ctrl.Result{}, nil
 }
