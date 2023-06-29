@@ -18,15 +18,9 @@ package controllers
 
 import (
 	"context"
-	"fmt"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	apiv1alpha1 "operators/WorkerCreator/api/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,24 +46,6 @@ type WorkerCreatorReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 
-func searchWorkerDefinition(name string) unstructured.Unstructured {
-	workerDef := unstructured.Unstructured{}
-	workerDef.SetKind("WorkerDefinition")
-	workerDef.SetName(name)
-	workerDef.SetAPIVersion("api.worker-definition/v1alpha1")
-	workerDef.SetNamespace("default")
-	return workerDef
-}
-
-func searchWorkerDeployment(name string) unstructured.Unstructured {
-	workerDeployment := unstructured.Unstructured{}
-	workerDeployment.SetKind("WorkerDeployment")
-	workerDeployment.SetName(name)
-	workerDeployment.SetAPIVersion("api.worker-deployment/v1alpha1")
-	workerDeployment.SetNamespace("default")
-	return workerDeployment
-}
-
 func applyResource(r *WorkerCreatorReconciler, ctx context.Context, resource client.Object, foundResource client.Object) error {
 	err := r.Get(ctx, types.NamespacedName{Name: resource.GetName(), Namespace: resource.GetNamespace()}, foundResource)
 	if err != nil && errors.IsNotFound(err) {
@@ -83,7 +59,7 @@ func applyResource(r *WorkerCreatorReconciler, ctx context.Context, resource cli
 }
 
 func (r *WorkerCreatorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.Log.WithValues("PodInstanciator", req.NamespacedName)
+	//logger := log.Log.WithValues("PodInstanciator", req.NamespacedName)
 
 	instance := &apiv1alpha1.WorkerCreator{}
 	err := r.Get(ctx, req.NamespacedName, instance)
@@ -95,102 +71,30 @@ func (r *WorkerCreatorReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	workerDef := searchWorkerDefinition(instance.Spec.WorkerDefinitionId)
-	workerDepl := searchWorkerDeployment(instance.Spec.WorkerDeploymentId)
-
-	workerDefNamespacedName := types.NamespacedName{Name: instance.Spec.WorkerDefinitionId, Namespace: "default"}
-	workerDeplNamespacedName := types.NamespacedName{Name: instance.Spec.WorkerDeploymentId, Namespace: "default"}
-
-	err = r.Get(ctx, workerDefNamespacedName, &workerDef)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if !workerDef.GetDeletionTimestamp().IsZero() {
-		// Le CRD est en cours de suppression
-		return ctrl.Result{}, fmt.Errorf("WorkerDefinition %s is being deleted", workerDef.GetName())
-	}
-
-	err = r.Get(ctx, workerDeplNamespacedName, &workerDepl)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if !workerDef.GetDeletionTimestamp().IsZero() {
-		// Le CRD est en cours de suppression
-		return ctrl.Result{}, fmt.Errorf("WorkerDeployment %s is being deleted", workerDepl.GetName())
-	}
-	workerDefSpec := workerDef.UnstructuredContent()["spec"]
-	workerDeplSpec := workerDepl.UnstructuredContent()["spec"]
-
-	accounts, ok := workerDefSpec.(map[string]interface{})["accounts"]
-	if !ok {
-		return ctrl.Result{}, fmt.Errorf("there is no accounts in workerDef")
-	}
-	project, ok := workerDefSpec.(map[string]interface{})["project"]
-	if !ok {
-		return ctrl.Result{}, fmt.Errorf("there is no project in workerDef")
-	}
-	image, ok := workerDeplSpec.(map[string]interface{})["image"]
-	if !ok {
-		return ctrl.Result{}, fmt.Errorf("there is no image in workerDepl")
-	}
-
-	// Vérifier si le champ "ports" existe et est une liste
-	portsList, ok := workerDeplSpec.(map[string]interface{})["ports"].([]interface{})
-	if !ok {
-		return ctrl.Result{}, fmt.Errorf("there is not `ports` field")
-	}
-
-	ports := make([]apiv1alpha1.Port, 0)
-
-	// Parcourir la liste des ports
-	for _, portObj := range portsList {
-		portMap, ok := portObj.(map[string]interface{})
-		if !ok {
-			return ctrl.Result{}, fmt.Errorf("Élément de la liste des ports n'est pas un objet")
-		}
-
-		portNumber, ok := portMap["portNumber"].(int64)
-		if !ok {
-			return ctrl.Result{}, fmt.Errorf("portNumber is not a number")
-		}
-
-		portName, ok := portMap["portName"].(string)
-		if !ok {
-			return ctrl.Result{}, fmt.Errorf("portName is incorrect")
-		}
-
-		ports = append(ports, apiv1alpha1.Port{
-			PortName:   portName,
-			PortNumber: int32(portNumber),
-		})
-	}
-
-	logger.Info(fmt.Sprintf("workerDef accounts : %s", accounts))
-	logger.Info(fmt.Sprintf("workerDef project : %s", project))
-	logger.Info(fmt.Sprintf("workerDepl image : %s", image))
-
-	instanceName := fmt.Sprintf("worker-%s-%s", accounts, project)
-
-	pod := createPod(instanceName, fmt.Sprintf("%s", image), ports)
-	svc := createService(instanceName)
-	ing := createIngress(ports, instanceName)
-
-	err = applyResource(r, ctx, pod, &corev1.Pod{})
-	if err != nil {
-		logger.Error(err, "unable to create Pod")
-		return ctrl.Result{}, err
-	}
-	err = applyResource(r, ctx, svc, &corev1.Service{})
-	if err != nil {
-		logger.Error(err, "unable to create Service")
-		return ctrl.Result{}, err
-	}
-	err = applyResource(r, ctx, ing, &networkingv1.Ingress{})
-	if err != nil {
-		logger.Error(err, "unable to create Ingress")
-		return ctrl.Result{}, err
-	}
-	logger.Info("all resources created!")
+	//accounts := instance.Spec.Accounts
+	//scripts := instance.Spec.Scripts
+	//
+	//instanceName := fmt.Sprintf("worker-%s-%s", accounts, scripts)
+	//pod := createPod(instanceName, fmt.Sprintf("%s", image), ports)
+	//svc := createService(instanceName)
+	//ing := createIngress(ports, instanceName)
+	//
+	//err = applyResource(r, ctx, pod, &corev1.Pod{})
+	//if err != nil {
+	//	logger.Error(err, "unable to create Pod")
+	//	return ctrl.Result{}, err
+	//}
+	//err = applyResource(r, ctx, svc, &corev1.Service{})
+	//if err != nil {
+	//	logger.Error(err, "unable to create Service")
+	//	return ctrl.Result{}, err
+	//}
+	//err = applyResource(r, ctx, ing, &networkingv1.Ingress{})
+	//if err != nil {
+	//	logger.Error(err, "unable to create Ingress")
+	//	return ctrl.Result{}, err
+	//}
+	//logger.Info("all resources created!")
 	return ctrl.Result{}, nil
 }
 

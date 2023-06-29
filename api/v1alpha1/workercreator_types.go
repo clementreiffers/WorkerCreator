@@ -25,8 +25,8 @@ import (
 
 // WorkerCreatorSpec defines the desired state of WorkerCreator
 type WorkerCreatorSpec struct {
-	WorkerDeploymentId string `json:"worker-deployment-id"`
-	WorkerDefinitionId string `json:"worker-definition-id"`
+	Accounts string `json:"accounts"`
+	Scripts  string `json:"scripts"`
 }
 
 type Port struct {
